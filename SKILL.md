@@ -70,7 +70,7 @@ description: |
 대화에서 추출:
 - **서버명**: SSH config 호스트명 (예: `matter`)
 - **명령어 목록**: 실행 순서대로
-- **저장 경로**: 미지정이면 현재 마운트된 프로젝트 폴더 사용
+- **저장 경로**: 미지정이면 **현재 실행 중인 프로젝트 워크스페이스의 루트 폴더**를 기본 저장 위치로 사용한다.
 
 또한, `<스킬 경로>/config.json` 파일이 존재하는지 확인하고, 해당 파일에 해당 서버명에 대한 설정(`host`, `user`, `cwd`)이 있는지 로드한다.
 
@@ -133,14 +133,19 @@ mcp__iterm2__run_command(
 
 규칙: 서비스/파일명 우선, 옵션 플래그 제외, URL은 핵심 단어만.
 
-#### d) nnn 자동 증가
+#### d) nnn 자동 증가 및 디렉터리 생성
 
-파일명 형식: `YYYY-MM-DD-NNN-{topic}.png`
-날짜 → 번호 순으로 정렬되어 `ls` 결과가 시간순으로 항상 올바르게 정렬된다.
+- **디렉터리 생성**: 먼저 `mkdir -p <저장경로>`를 실행하여 저장 폴더가 존재하는지 확인하고 필요시 생성한다.
+- **파일명 형식**: `YYYY-MM-DD-NNN-{host}-{topic}.png` (여기서 `{host}`는 설정된 host 또는 서버명)
+- 날짜 → 번호 순으로 정렬되어 `ls` 결과가 시간순으로 항상 올바르게 정렬된다.
 
 ```bash
-LAST=$(ls <저장경로>/<TODAY>-*-<topic>.png 2>/dev/null \
-       | sed 's/.*-\([0-9]\{3\}\)-[^-]*\.png$/\1/' | sort -n | tail -1)
+# 저장할 디렉터리 생성
+mkdir -p "<저장경로>"
+
+# 기존 파일에서 마지막 일련번호(NNN) 추출 후 1 증가
+LAST=$(ls <저장경로>/<TODAY>-*-<host>-<topic>.png 2>/dev/null \
+       | sed 's/.*-\([0-9]\{3\}\)-.*\.png$/\1/' | sort -n | tail -1)
 NNN=$(printf "%03d" $(( ${LAST:-0} + 1 )))
 ```
 
@@ -151,7 +156,7 @@ NNN=$(printf "%03d" $(( ${LAST:-0} + 1 )))
 
 ```bash
 SCRIPT="<스킬 경로>/scripts/render_terminal.py"
-OUTPUT="<저장경로>/<TODAY>-<NNN>-<topic>.png"
+OUTPUT="<저장경로>/<TODAY>-<NNN>-<host>-<topic>.png"
 
 python3 "$SCRIPT" \
   --output   "$OUTPUT" \
@@ -178,8 +183,8 @@ python3 "$SCRIPT" \
 
 ```
 ✅ 터미널 스크린샷 저장 완료 (2개)
-  - 2026-05-20-001-docker-ps.png  (920×288)
-  - 2026-05-20-002-disk-usage.png (920×192)
+  - 2026-05-20-001-matter-docker-ps.png  (920×288)
+  - 2026-05-20-002-matter-disk-usage.png (920×192)
 ```
 
 ---
@@ -206,29 +211,30 @@ python3 "$SCRIPT" \
 1. 서버: `matter`, 명령어: `["docker ps", "df -h"]`
 2. 로컬 세션 ID 확인 (예: `E16AE72E`)
 3. `config.json` 로드 완료: `host=10.0.0.5`, `user=deploy`, `cwd=/var/www/html`
-4. **명령 1** — `docker ps`
+4. **디렉터리 생성 및 일련번호 결정**: 프로젝트 폴더 루트에 대해 `mkdir -p` 수행 후 파일 번호 확인
+5. **명령 1** — `docker ps`
 
    ```bash
    # 실행 (설정된 user, host, cwd 적용)
    ssh deploy@10.0.0.5 "cd /var/www/html && docker ps 2>&1"
 
-   # PNG 렌더링 (설정된 값 적용)
+   # PNG 렌더링 (설정된 값 적용, YYYY-MM-DD-NNN-{host}-{topic}.png 형식)
    python3 render_terminal.py \
      --hostname 10.0.0.5 --user deploy --cwd /var/www/html --cmd "docker ps" \
-     --text "<캡처된 출력>" --output 2026-05-20-001-docker-ps.png
+     --text "<캡처된 출력>" --output /Volumes/Data01/Users/yarang/working/antigravity/2026-05-20-001-10.0.0.5-docker-ps.png
    ```
 
-5. **명령 2** — `df -h`
+6. **명령 2** — `df -h`
 
    ```bash
    ssh deploy@10.0.0.5 "cd /var/www/html && df -h 2>&1"
 
    python3 render_terminal.py \
      --hostname 10.0.0.5 --user deploy --cwd /var/www/html --cmd "df -h" \
-     --text "<캡처된 출력>" --output 2026-05-20-002-disk-usage.png
+     --text "<캡처된 출력>" --output /Volumes/Data01/Users/yarang/working/antigravity/2026-05-20-002-10.0.0.5-disk-usage.png
    ```
 
-6. 결과 보고
+7. 결과 보고
 
 ### 예시 2: 서버 설정 등록/변경
 
